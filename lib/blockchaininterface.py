@@ -157,8 +157,9 @@ class BlockrInterface(BlockchainInterface):
 				else:
 					wallet.index[mix_depth][forchange] = wallet.addr_cache[last_used_addr][2] + 1
 
-	def sync_txs(self,txs):
-		txs = tsx[:]
+	def sync_txs(self):
+		txs = self.txs[:]
+		self.txs_info = []
 		while txs:
 			dw = txs[:self.BLOCKR_MAX_ADDR_REQ_COUNT]
 			del txs[:self.BLOCKR_MAX_ADDR_REQ_COUNT]
@@ -173,7 +174,12 @@ class BlockrInterface(BlockchainInterface):
 			res = btc.make_request(blockr_url+','.join(dw))
 			data = json.loads(res)['data']
 			for dat in data:
-				pass # XXX
+				dat = dat['trade']
+				tx_info = {
+					'vins': [(x['address'],x['amount']) for x in dat['vins']],
+					'vouts': [(x['address'],x['amount']) for x in dat['vouts']]
+				}
+				self.txs_info.append(tx_info)
 					
 	def sync_unspent(self, wallet):
 		#finds utxos in the wallet
