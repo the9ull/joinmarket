@@ -122,6 +122,8 @@ class BlockrInterface(BlockchainInterface):
 		self.network = 'testnet' if testnet else 'btc' #see bci.py in bitcoin module
 		self.blockr_domain = 'tbtc' if testnet else 'btc'
 		self.last_sync_unspent = 0
+		self.txs = []
+		self.txs_info = []
 
 	def sync_addresses(self, wallet):
 		common.debug('downloading wallet history')
@@ -145,6 +147,9 @@ class BlockrInterface(BlockchainInterface):
 						if dat['nb_txs'] != 0:
 							last_used_addr = dat['address']
 							unused_addr_count = 0
+							# fill txs
+							for tx in dat['txs']:
+								self.txs.append(dat['tx'])
 						else:
 							unused_addr_count += 1
 				if last_used_addr == '':
@@ -152,6 +157,24 @@ class BlockrInterface(BlockchainInterface):
 				else:
 					wallet.index[mix_depth][forchange] = wallet.addr_cache[last_used_addr][2] + 1
 
+	def sync_txs(self,txs):
+		txs = tsx[:]
+		while txs:
+			dw = txs[:self.BLOCKR_MAX_ADDR_REQ_COUNT]
+			del txs[:self.BLOCKR_MAX_ADDR_REQ_COUNT]
+
+			# DEBUG TX
+			# https://btc.blockr.io/api/v1/tx/info/9eb4d34e6a3546bad2df16496a6a153960f87c068830563beaed875698863e48,da87d7273549ae3921c38c0218977fc68b0b934621443643ddd99fdd6e2326be
+
+			# DEBUG ADDR
+			# https://btc.blockr.io/api/v1/address/txs/1Mwgxs43SJXpArZUuRyBJgcappJCVfGQ5V,1NE4iGcZ6s2ATB7UeQKXX3hQLr1coajA81
+			
+			blockr_url = 'https://' + self.blockr_domain + '.blockr.io/api/v1/tx/info/'
+			res = btc.make_request(blockr_url+','.join(dw))
+			data = json.loads(res)['data']
+			for dat in data:
+				pass # XXX
+					
 	def sync_unspent(self, wallet):
 		#finds utxos in the wallet
 		st = time.time()
