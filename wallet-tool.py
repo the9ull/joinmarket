@@ -48,7 +48,7 @@ if not options.maxmixdepth:
 	options.maxmixdepth = 5
 
 noseed_methods = ['generate', 'recover', 'listwallets']
-methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey'] + noseed_methods
+methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey','depwit'] + noseed_methods
 noscan_methods = ['showseed', 'importprivkey']
 
 if len(args) < 1:
@@ -66,7 +66,7 @@ else:
 	if method not in noscan_methods:
 		common.bc_interface.sync_wallet(wallet)
 
-if method == 'display' or method == 'displayall' or method == 'summary':
+if method == 'display' or method == 'displayall' or method == 'summary' or method == 'depwit':
 	def printd(s):
 		if method != 'summary':
 			print s
