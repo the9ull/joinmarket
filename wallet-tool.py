@@ -6,6 +6,7 @@ data_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(data_dir, 'lib'))
 
 import bitcoin as btc
+import blockchaininterface
 from common import Wallet, load_program_config, get_p2pk_vbyte
 import common
 import old_mnemonic, slowaes
@@ -65,8 +66,27 @@ else:
 		extend_mixdepth=not maxmixdepth_configured, storepassword=(method=='importprivkey'))
 	if method not in noscan_methods:
 		common.bc_interface.sync_wallet(wallet)
+		if method == 'depwit' and isinstance(common.bc_interface, blockchaininterface.BlockrInterface):
+			common.bc_interface.sync_txs()
+		elif not isinstance(common.bc_interface, blockchaininterface.BlockrInterface):
+			# Prevent inconsistences
+			common.bc_interface.txs_info = []
 
-if method == 'display' or method == 'displayall' or method == 'summary' or method == 'depwit':
+			
+def is_cj(tx_info):
+	# TODO: define this better
+	return len(tx_info['vouts']) > 2
+			
+if  method == 'depwit':
+	for info in sorted(common.bc_interface.txs_info, key=lambda x: x['time_utc']):
+		if not is_cj(info):
+			print info['tx']
+			print info['time_utc']
+			print '%20s%20s' % ('Address','Amount')
+			for out in info['vouts']:
+				print '%20s%20.8f' % (out[0],out[1])
+		
+elif method == 'display' or method == 'displayall' or method == 'summary':
 	def printd(s):
 		if method != 'summary':
 			print s

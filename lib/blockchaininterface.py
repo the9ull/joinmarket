@@ -149,7 +149,7 @@ class BlockrInterface(BlockchainInterface):
 							unused_addr_count = 0
 							# fill txs
 							for tx in dat['txs']:
-								self.txs.append(dat['tx'])
+								self.txs.append(tx['tx'])
 						else:
 							unused_addr_count += 1
 				if last_used_addr == '':
@@ -160,7 +160,9 @@ class BlockrInterface(BlockchainInterface):
 	def sync_txs(self):
 		txs = self.txs[:]
 		self.txs_info = []
+		print 'Sync txs...'
 		while txs:
+			# print '...%.2f%%' % ( 100. * (len(self.txs)-len(txs)) / len(self.txs)  )
 			dw = txs[:self.BLOCKR_MAX_ADDR_REQ_COUNT]
 			del txs[:self.BLOCKR_MAX_ADDR_REQ_COUNT]
 
@@ -174,10 +176,12 @@ class BlockrInterface(BlockchainInterface):
 			res = btc.make_request(blockr_url+','.join(dw))
 			data = json.loads(res)['data']
 			for dat in data:
-				dat = dat['trade']
+				da = dat['trade']
 				tx_info = {
-					'vins': [(x['address'],x['amount']) for x in dat['vins']],
-					'vouts': [(x['address'],x['amount']) for x in dat['vouts']]
+					'tx': dat['tx'],
+					'vins': [(x['address'],x['amount']) for x in da['vins']],
+					'vouts': [(x['address'],x['amount']) for x in da['vouts']],
+					'time_utc': dat['time_utc'],
 				}
 				self.txs_info.append(tx_info)
 					
