@@ -66,19 +66,19 @@ else:
 		extend_mixdepth=not maxmixdepth_configured, storepassword=(method=='importprivkey'))
 	if method not in noscan_methods:
 		common.bc_interface.sync_wallet(wallet)
-		if method == 'depwit' and isinstance(common.bc_interface, blockchaininterface.BlockrInterface):
-			common.bc_interface.sync_txs()
-		elif not isinstance(common.bc_interface, blockchaininterface.BlockrInterface):
-			# Prevent inconsistences
-			common.bc_interface.txs_info = []
-
 			
 def is_cj(tx_info):
 	# TODO: define this better
 	return len(tx_info['vouts']) > 2
-			
-if  method == 'depwit':
-	for info in sorted(common.bc_interface.txs_info, key=lambda x: x['time_utc']):
+
+def is_deposit(wallet, tx_info):
+	return True
+
+if method == 'depwit':
+	if not isinstance(common.bc_interface, blockchaininterface.BlockrInterface):
+		raise NotImplemented('Only BlockrInterface is supported now')
+	common.bc_interface.sync_txs(wallet)
+	for info in sorted(wallet.txs_info, key=lambda x: x['time_utc']):
 		if not is_cj(info):
 			print info['tx']
 			print info['time_utc']

@@ -122,18 +122,19 @@ class BlockrInterface(BlockchainInterface):
 		self.network = 'testnet' if testnet else 'btc' #see bci.py in bitcoin module
 		self.blockr_domain = 'tbtc' if testnet else 'btc'
 		self.last_sync_unspent = 0
-		self.txs = []
-		self.txs_info = []
-
+		
 	def sync_addresses(self, wallet):
 		common.debug('downloading wallet history')
 		#sets Wallet internal indexes to be at the next unused address
+		wallet.txs = set()
+		wallet.addrs = set()
 		for mix_depth in range(wallet.max_mix_depth):
 			for forchange in [0, 1]:
 				unused_addr_count = 0
 				last_used_addr = ''
 				while unused_addr_count < wallet.gaplimit or not is_index_ahead_of_cache(wallet, mix_depth, forchange):
 					addrs = [wallet.get_new_addr(mix_depth, forchange) for i in range(self.BLOCKR_MAX_ADDR_REQ_COUNT)]
+					wallet.addrs.update(addrs)
 
 					#TODO send a pull request to pybitcointools
 					# because this surely should be possible with a function from it
@@ -149,17 +150,18 @@ class BlockrInterface(BlockchainInterface):
 							unused_addr_count = 0
 							# fill txs
 							for tx in dat['txs']:
-								self.txs.append(tx['tx'])
+								wallet.txs.add(tx['tx'])
 						else:
 							unused_addr_count += 1
 				if last_used_addr == '':
 					wallet.index[mix_depth][forchange] = 0
 				else:
 					wallet.index[mix_depth][forchange] = wallet.addr_cache[last_used_addr][2] + 1
+		print 'wallet.index',wallet.index
 
-	def sync_txs(self):
-		txs = self.txs[:]
-		self.txs_info = []
+	def sync_txs(self, wallet):
+		txs = list(wallet.txs)
+		wallet.txs_info = set()
 		print 'Sync txs...'
 		while txs:
 			# print '...%.2f%%' % ( 100. * (len(self.txs)-len(txs)) / len(self.txs)  )
@@ -183,7 +185,7 @@ class BlockrInterface(BlockchainInterface):
 					'vouts': [(x['address'],x['amount']) for x in da['vouts']],
 					'time_utc': dat['time_utc'],
 				}
-				self.txs_info.append(tx_info)
+				wallet.txs_info.add(tx_info)
 					
 	def sync_unspent(self, wallet):
 		#finds utxos in the wallet
