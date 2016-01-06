@@ -12,36 +12,35 @@ import jsonrpc
 import subprocess
 
 class CliJsonRpc(object):
-    """
-    Fake JsonRpc class that uses the Bitcoin CLI executable.  This is used
-    as temporary fall back before we switch completely (and exclusively)
-    to the real JSON-RPC interface.
-    """
+	"""
+	Fake JsonRpc class that uses the Bitcoin CLI executable.  This is used
+	as temporary fall back before we switch completely (and exclusively)
+	to the real JSON-RPC interface.
+	"""
 
-    def __init__(self, cli, testnet):
-	self.cli = cli
-	if testnet:
-	    self.cli.append("-testnet")
+	def __init__(self, cli, testnet):
+		if testnet:
+			self.cli.append("-testnet")
 
-    def call(self, method, params):
-	fullCall = []
-	fullCall.extend (self.cli)
-	fullCall.append (method)
-	for p in params:
-	    if isinstance(p, basestring):
-		fullCall.append(p)
-	    else:
-		fullCall.append(json.dumps(p))
+	def call(self, method, params):
+		fullCall = []
+		fullCall.extend (self.cli)
+		fullCall.append (method)
+		for p in params:
+			if isinstance(p, basestring):
+				fullCall.append(p)
+			else:
+				fullCall.append(json.dumps(p))
 
-	res = subprocess.check_output(fullCall)
+		res = subprocess.check_output(fullCall)
 
-	if res == '':
-	    return None
+		if res == '':
+			return None
 
-	try:
-	    return json.loads (res)
-	except ValueError:
-	    return res.strip()
+		try:
+			return json.loads (res)
+		except ValueError:
+			return res.strip()
 
 def is_index_ahead_of_cache(wallet, mix_depth, forchange):
 	if mix_depth >= len(wallet.index_cache):
@@ -160,9 +159,37 @@ class BlockrInterface(BlockchainInterface):
 		print 'wallet.index',wallet.index
 
 	def sync_txs(self, wallet):
+		"""
+		Overlap the functions of: sync_unspent()
+		TODO: Merge the two functions
+		"""
 		txs = list(wallet.txs)
 		wallet.txs_info = []
-                added_txs = set()
+		added_txs = set()
+
+		# get txs from the imported addresses
+		imported_addrs = []
+		for m in wallet.imported_privkeys:
+			for privkey in wallet.imported_privkeys[m]:
+				imported_addrs.append(btc.privtoaddr(privkey, common.get_p2pk_vbyte()))
+
+		print 'Save the imported addressed'
+		print imported_addrs
+		wallet.imported_addrs = imported_addrs[:]
+
+		while imported_addrs:
+			req = imported_addrs[:self.BLOCKR_MAX_ADDR_REQ_COUNT]
+			del imported_addrs[:self.BLOCKR_MAX_ADDR_REQ_COUNT]
+
+			blockr_url = 'https://' + self.blockr_domain + '.blockr.io/api/v1/address/txs/'
+			res = btc.make_request(blockr_url+','.join(req))
+			data = json.loads(res)['data']
+			for dat in data:
+				if dat['nb_txs'] != 0:
+					# fill txs
+					for tx in dat['txs']:
+						txs.append(tx['tx'])
+
 		print 'Sync txs...'
 		while txs:
 			# print '...%.2f%%' % ( 100. * (len(self.txs)-len(txs)) / len(self.txs)  )
@@ -180,9 +207,10 @@ class BlockrInterface(BlockchainInterface):
 			data = json.loads(res)['data']
 			for dat in data:
 				da = dat['trade']
-                                if dat['tx'] in added_txs:
-                                    continue
-                                added_txs.add(dat['tx'])
+				if dat['tx'] in added_txs:
+					continue
+				added_txs.add(dat['tx'])
+				# TODO: use namedtuple
 				tx_info = {
 					'tx': dat['tx'],
 					'vins': [(x['address'],x['amount']) for x in da['vins']],
@@ -461,7 +489,7 @@ class BitcoinCoreInterface(BlockchainInterface):
 
 		netmap = {'main': 'mainnet', 'test': 'testnet', 'regtest': 'regtest'}
 		if netmap[actualNet] != network:
-		    raise Exception('wrong network configured')
+			raise Exception('wrong network configured')
 
 		self.notifythread = None
 		self.txnotify_fun = []
@@ -684,7 +712,7 @@ def main():
 	print myBCI.get_utxos_from_addr(['mygp9fsgEJ5U7jkPpDjX9nxRj8b5nC3Hnd'])
 
 if __name__ == '__main__':
-    main()
+	main()
 
 
 

@@ -39,6 +39,10 @@ parser.add_option('-g', '--gap-limit', type="int", action='store', dest='gaplimi
 	help='gap limit for wallet, default=6', default=6)
 parser.add_option('-M', '--mix-depth', type="int", action='store', dest='mixdepth',
 	help='mixing depth to import private key into', default=0)
+parser.add_option('-e', '--external', action='store_true', dest='external',
+	help='show external (deposits and withdrawals) transactions of the wallet', default=False)
+parser.add_option('-i', '--internal', action='store_true', dest='internal',
+	help='show internal (coinjoin) transactions of the wallet', default=False)
 (options, args) = parser.parse_args()
 
 #if the index_cache stored in wallet.json is longer than the default
@@ -49,7 +53,7 @@ if not options.maxmixdepth:
 	options.maxmixdepth = 5
 
 noseed_methods = ['generate', 'recover', 'listwallets']
-methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey','depwit'] + noseed_methods
+methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey','listtransactions'] + noseed_methods
 noscan_methods = ['showseed', 'importprivkey']
 
 if len(args) < 1:
@@ -66,50 +70,72 @@ else:
 		extend_mixdepth=not maxmixdepth_configured, storepassword=(method=='importprivkey'))
 	if method not in noscan_methods:
 		common.bc_interface.sync_wallet(wallet)
-			
-def is_cj(tx_info):
-	# TODO: define this better
-	return len(tx_info['vouts']) > 2
 
-def is_deposit(wallet, tx_info):
+
+def is_cj(tx_info):
+	# All the addresses start with 1
+	for a, _ in tx_info['vouts'] + tx_info['vins']:
+		if not a.startswith('1'):
+			return False
+	h = {}
+	for o in tx_info['vouts']:
+		a = o[1]
+		h[a] = h.get(a, 0) + 1
+	f = max(h.values())  # the max frequence
+	m = [k for k, v in h.items() if v==f][0]
+	if f<2:
+		return False
+	if len(tx_info['vins']) < 2:
+		return False
+	if len(tx_info['vins']) < f:
+		# this is not safe at 100%.
+		# A change amount could be randomly equal to m
+		return False
 	return True
 
 def addr_is_mine(wallet, addr):
-        return addr in wallet.addrs
+	return addr in wallet.addrs or hasattr(wallet, 'imported_addrs') and addr in wallet.imported_addrs
+
 
 def tag_if_mine(wallet, addr):
-        return '@'+addr if addr in wallet.addrs else addr
+	if hasattr(wallet, 'imported_addrs') and addr in wallet.imported_addrs:
+		return '#'+addr
+	return '@'+addr if addr in wallet.addrs else addr
+
 
 def tx_balance(wallet, tx_info):
-        return sum([x[1] for x in info['vins'] + info['vouts'] if addr_is_mine(wallet, x[0])])
+	return sum([x[1] for x in info['vins'] + info['vouts'] if addr_is_mine(wallet, x[0])])
 
-if method == 'depwit':
+
+def pbtc(btc):
+	"""printable btc"""
+	return '%.8f' % btc
+
+if method == 'listtransactions':
 	if not isinstance(common.bc_interface, blockchaininterface.BlockrInterface):
 		raise NotImplemented('Only BlockrInterface is supported now')
 	common.bc_interface.sync_txs(wallet)
-        record_frm = '%-30s%20s'
-        summary = []
+	record_frm = '%-40s%20s'
 	for info in sorted(wallet.txs_info, key=lambda x: x['time_utc']):
-		if not is_cj(info):
-                        print
-			print info['tx']
-                        ts = info['time_utc'].replace('T',' ').replace('Z','')
+		is_coinjoin = is_cj(info)
+		if is_coinjoin and options.internal or not is_coinjoin and options.external:
+			print
+			print info['tx'],
+			if options.internal and options.external:
+				print 'cj' if is_coinjoin else 'ext'
+			else:
+				print
+			ts = info['time_utc'].replace('T',' ').replace('Z','')
 			print ts
-			print record_frm % ('In','Amount')
 			for in_ in info['vins']:
-				print record_frm % (tag_if_mine(wallet, in_[0]),in_[1])
-			print record_frm % ('Out','Amount')
+				if addr_is_mine(wallet, in_[0]):
+					print record_frm % (tag_if_mine(wallet, in_[0]), pbtc(in_[1]))
 			for out in info['vouts']:
-				print record_frm % (tag_if_mine(wallet, out[0]),out[1])
-                        balance = tx_balance(wallet, info)
-                        summary.append((ts ,balance))
-                        print record_frm % ('Tx balance', balance)
+				if addr_is_mine(wallet, out[0]):
+					print record_frm % (tag_if_mine(wallet, out[0]), pbtc(out[1]))
+			balance = tx_balance(wallet, info)
+			print record_frm % ('Tx balance', pbtc(balance))
 
-        print
-        for s in summary:
-                print record_frm % s
-
-		
 elif method == 'display' or method == 'displayall' or method == 'summary':
 	def printd(s):
 		if method != 'summary':
