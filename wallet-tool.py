@@ -74,17 +74,41 @@ def is_cj(tx_info):
 def is_deposit(wallet, tx_info):
 	return True
 
+def addr_is_mine(wallet, addr):
+        return addr in wallet.addrs
+
+def tag_if_mine(wallet, addr):
+        return '@'+addr if addr in wallet.addrs else addr
+
+def tx_balance(wallet, tx_info):
+        return sum([x[1] for x in info['vins'] + info['vouts'] if addr_is_mine(wallet, x[0])])
+
 if method == 'depwit':
 	if not isinstance(common.bc_interface, blockchaininterface.BlockrInterface):
 		raise NotImplemented('Only BlockrInterface is supported now')
 	common.bc_interface.sync_txs(wallet)
+        record_frm = '%-30s%20s'
+        summary = []
 	for info in sorted(wallet.txs_info, key=lambda x: x['time_utc']):
 		if not is_cj(info):
+                        print
 			print info['tx']
-			print info['time_utc']
-			print '%20s%20s' % ('Address','Amount')
+                        ts = info['time_utc'].replace('T',' ').replace('Z','')
+			print ts
+			print record_frm % ('In','Amount')
+			for in_ in info['vins']:
+				print record_frm % (tag_if_mine(wallet, in_[0]),in_[1])
+			print record_frm % ('Out','Amount')
 			for out in info['vouts']:
-				print '%20s%20.8f' % (out[0],out[1])
+				print record_frm % (tag_if_mine(wallet, out[0]),out[1])
+                        balance = tx_balance(wallet, info)
+                        summary.append((ts ,balance))
+                        print record_frm % ('Tx balance', balance)
+
+        print
+        for s in summary:
+                print record_frm % s
+
 		
 elif method == 'display' or method == 'displayall' or method == 'summary':
 	def printd(s):

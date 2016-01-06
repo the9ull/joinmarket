@@ -161,7 +161,8 @@ class BlockrInterface(BlockchainInterface):
 
 	def sync_txs(self, wallet):
 		txs = list(wallet.txs)
-		wallet.txs_info = set()
+		wallet.txs_info = []
+                added_txs = set()
 		print 'Sync txs...'
 		while txs:
 			# print '...%.2f%%' % ( 100. * (len(self.txs)-len(txs)) / len(self.txs)  )
@@ -179,13 +180,16 @@ class BlockrInterface(BlockchainInterface):
 			data = json.loads(res)['data']
 			for dat in data:
 				da = dat['trade']
+                                if dat['tx'] in added_txs:
+                                    continue
+                                added_txs.add(dat['tx'])
 				tx_info = {
 					'tx': dat['tx'],
 					'vins': [(x['address'],x['amount']) for x in da['vins']],
 					'vouts': [(x['address'],x['amount']) for x in da['vouts']],
 					'time_utc': dat['time_utc'],
 				}
-				wallet.txs_info.add(tx_info)
+				wallet.txs_info.append(tx_info)
 					
 	def sync_unspent(self, wallet):
 		#finds utxos in the wallet
