@@ -43,6 +43,8 @@ parser.add_option('-e', '--external', action='store_true', dest='external',
 	help='show external (deposits and withdrawals) transactions of the wallet', default=False)
 parser.add_option('-i', '--internal', action='store_true', dest='internal',
 	help='show internal (coinjoin) transactions of the wallet', default=False)
+parser.add_option('-t', '--interval', type='str', action='store', dest='interval',
+	help='Specify the time interval of the query (example -t 2015-12-01:2016-01-10) NOT IMPLEMENTED', default=':')
 (options, args) = parser.parse_args()
 
 #if the index_cache stored in wallet.json is longer than the default
@@ -74,7 +76,7 @@ else:
 
 def is_cj(tx_info):
 	# All the addresses start with 1
-	for a, _ in tx_info['vouts'] + tx_info['vins']:
+	for a, _ in tx_info['vins']:
 		if not a.startswith('1'):
 			return False
 	h = {}
@@ -116,8 +118,11 @@ if method == 'listtransactions':
 		raise NotImplemented('Only BlockrInterface is supported now')
 	common.bc_interface.sync_txs(wallet)
 	record_frm = '%-40s%20s'
+	total_balance = 0
 	for info in sorted(wallet.txs_info, key=lambda x: x['time_utc']):
 		is_coinjoin = is_cj(info)
+		balance = tx_balance(wallet, info)
+		total_balance += balance
 		if is_coinjoin and options.internal or not is_coinjoin and options.external:
 			print
 			print info['tx'],
@@ -133,8 +138,8 @@ if method == 'listtransactions':
 			for out in info['vouts']:
 				if addr_is_mine(wallet, out[0]):
 					print record_frm % (tag_if_mine(wallet, out[0]), pbtc(out[1]))
-			balance = tx_balance(wallet, info)
-			print record_frm % ('Tx balance', pbtc(balance))
+			print record_frm % ('Tx balance   ', pbtc(balance))
+			print record_frm % ('Total balance', pbtc(total_balance))
 
 elif method == 'display' or method == 'displayall' or method == 'summary':
 	def printd(s):
