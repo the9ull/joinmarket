@@ -45,6 +45,8 @@ parser.add_option('-i', '--internal', action='store_true', dest='internal',
 	help='show internal (coinjoin) transactions of the wallet', default=False)
 parser.add_option('-t', '--interval', type='str', action='store', dest='interval',
 	help='Specify the time interval of the query (example -t 2015-12-01:2016-01-10) NOT IMPLEMENTED', default=':')
+parser.add_option('-v', '--verbose', action='store_true', dest='verbose',
+	          help='Print all the addresses in listtransactions command', default=False)
 (options, args) = parser.parse_args()
 
 #if the index_cache stored in wallet.json is longer than the default
@@ -133,10 +135,10 @@ if method == 'listtransactions':
 			ts = info['time_utc'].replace('T',' ').replace('Z','')
 			print ts
 			for in_ in info['vins']:
-				if addr_is_mine(wallet, in_[0]):
+				if addr_is_mine(wallet, in_[0]) or options.verbose:
 					print record_frm % (tag_if_mine(wallet, in_[0]), pbtc(in_[1]))
 			for out in info['vouts']:
-				if addr_is_mine(wallet, out[0]):
+				if addr_is_mine(wallet, out[0]) or options.verbose:
 					print record_frm % (tag_if_mine(wallet, out[0]), pbtc(out[1]))
 			print record_frm % ('Tx balance   ', pbtc(balance))
 			print record_frm % ('Total balance', pbtc(total_balance))
